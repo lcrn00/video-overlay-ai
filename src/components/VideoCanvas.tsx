@@ -13,6 +13,7 @@ const DEMO_VIDEO = "https://commondatastorage.googleapis.com/gtv-videos-bucket/s
 
 const VideoCanvas = ({ videoSrc, overlayCode, onResetOverlay }: VideoCanvasProps) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [overlayError, setOverlayError] = useState(false);
   const { toast } = useToast();
   const currentVideoSrc = videoSrc || DEMO_VIDEO;
@@ -47,11 +48,19 @@ const VideoCanvas = ({ videoSrc, overlayCode, onResetOverlay }: VideoCanvasProps
       setOverlayError(!isValid);
       
       if (isValid && iframeRef.current) {
-        // Write the complete HTML to the iframe
+        // Ensure the overlay has a transparent background
+        let modifiedCode = overlayCode;
+        if (!overlayCode.includes('background: transparent')) {
+          modifiedCode = overlayCode.replace(
+            /<body([^>]*)>/i,
+            '<body$1 style="background: transparent !important; margin: 0; padding: 0;">'
+          );
+        }
+        
         const iframeDoc = iframeRef.current.contentDocument;
         if (iframeDoc) {
           iframeDoc.open();
-          iframeDoc.write(overlayCode);
+          iframeDoc.write(modifiedCode);
           iframeDoc.close();
         }
       }
@@ -70,7 +79,38 @@ const VideoCanvas = ({ videoSrc, overlayCode, onResetOverlay }: VideoCanvasProps
       return;
     }
 
-    const blob = new Blob([overlayCode], { type: 'text/html' });
+    // Create a complete HTML file that includes the video
+    const overlayBody = overlayCode
+      .replace(/<!DOCTYPE html>.*?<body[^>]*>/is, '')
+      .replace(/<\/body>.*?<\/html>/is, '');
+
+    const completeHTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Marketing Video</title>
+  <style>
+    body, html { margin: 0; padding: 0; width: 100%; height: 100vh; overflow: hidden; }
+    .video-container { position: relative; width: 100%; height: 100%; }
+    .video-background { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
+    .overlay-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
+    .overlay-container * { pointer-events: auto; }
+  </style>
+</head>
+<body>
+  <div class="video-container">
+    <video class="video-background" autoplay loop muted playsinline>
+      <source src="${currentVideoSrc}" type="video/mp4">
+    </video>
+    <div class="overlay-container">
+      ${overlayBody}
+    </div>
+  </div>
+</body>
+</html>`;
+
+    const blob = new Blob([completeHTML], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -116,18 +156,33 @@ const VideoCanvas = ({ videoSrc, overlayCode, onResetOverlay }: VideoCanvasProps
             </div>
           </div>
         ) : (
-          // Show the generated HTML in an iframe
-          <iframe
-            ref={iframeRef}
-            className="w-full h-full border-0"
-            title="Marketing Video Preview"
-            sandbox="allow-scripts allow-same-origin"
-          />
+          // Layered approach: Video (React) + Overlay (iframe)
+          <>
+            {/* Native video element as background */}
+            <video
+              ref={videoRef}
+              className="absolute inset-0 w-full h-full object-cover"
+              src={currentVideoSrc}
+              autoPlay
+              loop
+              muted
+              playsInline
+            />
+            
+            {/* Overlay iframe on top with transparent background */}
+            <iframe
+              ref={iframeRef}
+              className="absolute inset-0 w-full h-full border-0 pointer-events-none"
+              style={{ zIndex: 10, background: 'transparent' }}
+              title="Marketing Video Overlay"
+              sandbox="allow-scripts allow-same-origin"
+            />
+          </>
         )}
 
         {/* Action Buttons */}
         {overlayCode && !overlayError && (
-          <div className="absolute bottom-4 left-4 flex gap-2">
+          <div className="absolute bottom-4 left-4 flex gap-2 z-20">
             <Button
               onClick={handleDownload}
               variant="secondary"
