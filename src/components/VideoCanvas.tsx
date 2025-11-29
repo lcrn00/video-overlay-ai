@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { Play, Pause } from "lucide-react";
+import { Download, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 interface VideoCanvasProps {
   videoSrc: string;
@@ -11,13 +12,18 @@ interface VideoCanvasProps {
 const DEMO_VIDEO = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
 
 const VideoCanvas = ({ videoSrc, overlayCode, onResetOverlay }: VideoCanvasProps) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const [overlayError, setOverlayError] = useState(false);
+  const { toast } = useToast();
   const currentVideoSrc = videoSrc || DEMO_VIDEO;
 
   const isValidHTML = (html: string): boolean => {
     if (!html || html.trim().length === 0) return true;
+    
+    // Check if it's a complete HTML document
+    if (!html.includes('<!DOCTYPE html>') && !html.includes('<html')) {
+      return false;
+    }
     
     // Check for common signs of truncated HTML
     const openTags = (html.match(/<[^/][^>]*>/g) || []).length;
@@ -36,96 +42,115 @@ const VideoCanvas = ({ videoSrc, overlayCode, onResetOverlay }: VideoCanvasProps
   };
 
   useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.load();
-    }
-  }, [currentVideoSrc]);
-
-  useEffect(() => {
     if (overlayCode) {
-      setOverlayError(!isValidHTML(overlayCode));
+      const isValid = isValidHTML(overlayCode);
+      setOverlayError(!isValid);
+      
+      if (isValid && iframeRef.current) {
+        // Write the complete HTML to the iframe
+        const iframeDoc = iframeRef.current.contentDocument;
+        if (iframeDoc) {
+          iframeDoc.open();
+          iframeDoc.write(overlayCode);
+          iframeDoc.close();
+        }
+      }
     } else {
       setOverlayError(false);
     }
   }, [overlayCode]);
 
-  const togglePlay = () => {
-    if (videoRef.current) {
-      if (isPlaying) {
-        videoRef.current.pause();
-      } else {
-        videoRef.current.play();
-      }
-      setIsPlaying(!isPlaying);
+  const handleDownload = () => {
+    if (!overlayCode) {
+      toast({
+        title: "No content",
+        description: "Generate an overlay first before downloading.",
+        variant: "destructive",
+      });
+      return;
     }
+
+    const blob = new Blob([overlayCode], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'marketing-video.html';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Downloaded",
+      description: "HTML file saved successfully!",
+    });
   };
 
   return (
     <div className="relative w-full max-w-4xl">
       <div className="relative aspect-video bg-card rounded-lg overflow-hidden shadow-lg border border-border">
-        {/* Video Element */}
-        <video
-          ref={videoRef}
-          className="w-full h-full object-contain"
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
-          loop
-        >
-          <source src={currentVideoSrc} type="video/mp4" />
-          Your browser does not support the video tag.
-        </video>
-
-        {/* Overlay Container */}
-        {overlayCode && !overlayError && (
-          <div 
-            className="absolute inset-0 pointer-events-none"
-            dangerouslySetInnerHTML={{ __html: overlayCode }}
-          />
-        )}
-
-        {/* Overlay Error Message */}
-        {overlayError && (
-          <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+        {!overlayCode ? (
+          // Show placeholder when no overlay is generated
+          <div className="flex items-center justify-center h-full bg-muted/50">
+            <div className="text-center p-8">
+              <p className="text-foreground font-medium mb-2">No overlay generated yet</p>
+              <p className="text-sm text-muted-foreground">
+                Use the chat to describe the marketing overlay you want to create
+              </p>
+            </div>
+          </div>
+        ) : overlayError ? (
+          // Show error message
+          <div className="flex items-center justify-center h-full bg-background/80 backdrop-blur-sm">
             <div className="bg-card border border-border rounded-lg p-6 max-w-md text-center shadow-lg">
               <p className="text-foreground font-medium mb-2">Overlay Error</p>
               <p className="text-sm text-muted-foreground mb-4">
-                The generated overlay appears to be incomplete or malformed.
+                The generated HTML appears to be incomplete or malformed.
               </p>
               {onResetOverlay && (
                 <Button onClick={onResetOverlay} variant="secondary">
+                  <RotateCcw className="w-4 h-4 mr-2" />
                   Reset Overlay
                 </Button>
               )}
             </div>
           </div>
+        ) : (
+          // Show the generated HTML in an iframe
+          <iframe
+            ref={iframeRef}
+            className="w-full h-full border-0"
+            title="Marketing Video Preview"
+            sandbox="allow-scripts allow-same-origin"
+          />
         )}
 
-        {/* Play/Pause Button Overlay */}
-        <div className="absolute bottom-4 left-4 flex gap-2">
-          <Button
-            onClick={togglePlay}
-            size="icon"
-            variant="secondary"
-            className="rounded-full w-12 h-12 shadow-lg hover:scale-105 transition-transform"
-          >
-            {isPlaying ? (
-              <Pause className="w-5 h-5" />
-            ) : (
-              <Play className="w-5 h-5" />
-            )}
-          </Button>
-          
-          {overlayCode && onResetOverlay && (
+        {/* Action Buttons */}
+        {overlayCode && !overlayError && (
+          <div className="absolute bottom-4 left-4 flex gap-2">
             <Button
-              onClick={onResetOverlay}
+              onClick={handleDownload}
               variant="secondary"
               size="sm"
               className="shadow-lg"
             >
-              Reset Overlay
+              <Download className="w-4 h-4 mr-2" />
+              Download HTML
             </Button>
-          )}
-        </div>
+            
+            {onResetOverlay && (
+              <Button
+                onClick={onResetOverlay}
+                variant="secondary"
+                size="sm"
+                className="shadow-lg"
+              >
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Reset
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       {!videoSrc && (

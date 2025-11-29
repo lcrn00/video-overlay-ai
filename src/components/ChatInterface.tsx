@@ -45,7 +45,10 @@ const ChatInterface = ({ videoSrc, onOverlayGenerated }: ChatInterfaceProps) => 
 
     try {
       const { data, error } = await supabase.functions.invoke('generate-overlay', {
-        body: { prompt: userMessage },
+        body: { 
+          prompt: userMessage,
+          videoSrc: videoSrc || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
+        },
       });
 
       if (error) {
@@ -67,7 +70,7 @@ const ChatInterface = ({ videoSrc, onOverlayGenerated }: ChatInterfaceProps) => 
         ...prev,
         {
           role: "assistant",
-          content: "I've generated the overlay for you. You should see it on the video now.",
+          content: "I've created your marketing video! You can preview it now and download the HTML file to use it anywhere.",
         },
       ]);
 
