@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import { Download, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -12,209 +12,104 @@ interface VideoCanvasProps {
 const DEMO_VIDEO = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
 
 const VideoCanvas = ({ videoSrc, overlayCode, onResetOverlay }: VideoCanvasProps) => {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [overlayError, setOverlayError] = useState(false);
   const { toast } = useToast();
   const currentVideoSrc = videoSrc || DEMO_VIDEO;
 
-  const isValidHTML = (html: string): boolean => {
-    if (!html || html.trim().length === 0) return true;
-    
-    // Check if it's a complete HTML document
-    if (!html.includes('<!DOCTYPE html>') && !html.includes('<html')) {
-      return false;
-    }
-    
-    // Check for common signs of truncated HTML
-    const openTags = (html.match(/<[^/][^>]*>/g) || []).length;
-    const closeTags = (html.match(/<\/[^>]+>/g) || []).length;
-    const selfClosingTags = (html.match(/<[^>]+\/>/g) || []).length;
-    
-    // Allow some tolerance for self-closing tags
-    const expectedCloseTags = openTags - selfClosingTags;
-    
-    // If difference is too large, likely truncated
-    if (Math.abs(expectedCloseTags - closeTags) > 3) {
-      return false;
-    }
-    
-    return true;
-  };
-
-  useEffect(() => {
-    if (overlayCode) {
-      const isValid = isValidHTML(overlayCode);
-      setOverlayError(!isValid);
-      
-      if (isValid && iframeRef.current) {
-        // Ensure the overlay has a transparent background
-        let modifiedCode = overlayCode;
-        if (!overlayCode.includes('background: transparent')) {
-          modifiedCode = overlayCode.replace(
-            /<body([^>]*)>/i,
-            '<body$1 style="background: transparent !important; margin: 0; padding: 0;">'
-          );
-        }
-        
-        const iframeDoc = iframeRef.current.contentDocument;
-        if (iframeDoc) {
-          iframeDoc.open();
-          iframeDoc.write(modifiedCode);
-          iframeDoc.close();
-        }
-      }
-    } else {
-      setOverlayError(false);
-    }
-  }, [overlayCode]);
+  // Wir bauen den Rahmen für den Code Schnipsel selbst
+  const srcDoc = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="UTF-8" />
+        <style>
+          body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: transparent !important; }
+        </style>
+      </head>
+      <body>
+        ${overlayCode || ""}
+      </body>
+    </html>
+  `;
 
   const handleDownload = () => {
-    if (!overlayCode) {
-      toast({
-        title: "No content",
-        description: "Generate an overlay first before downloading.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Create a complete HTML file that includes the video
-    const overlayBody = overlayCode
-      .replace(/<!DOCTYPE html>.*?<body[^>]*>/is, '')
-      .replace(/<\/body>.*?<\/html>/is, '');
-
-    const completeHTML = `<!DOCTYPE html>
-<html lang="en">
+    if (!overlayCode) return;
+    // Für den Download packen wir Video und Code zusammen in eine Datei
+    const fullHtml = `
+<!DOCTYPE html>
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Marketing Video</title>
-  <style>
-    body, html { margin: 0; padding: 0; width: 100%; height: 100vh; overflow: hidden; }
-    .video-container { position: relative; width: 100%; height: 100%; }
-    .video-background { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
-    .overlay-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
-    .overlay-container * { pointer-events: auto; }
-  </style>
+<style>
+  body, html { margin: 0; padding: 0; width: 100%; height: 100vh; overflow: hidden; }
+  #video-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
+  #overlay-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
+  #overlay-layer * { pointer-events: auto; }
+</style>
 </head>
 <body>
-  <div class="video-container">
-    <video class="video-background" autoplay loop muted playsinline>
-      <source src="${currentVideoSrc}" type="video/mp4">
-    </video>
-    <div class="overlay-container">
-      ${overlayBody}
-    </div>
-  </div>
+  <video id="video-bg" src="${currentVideoSrc}" autoplay loop muted playsinline></video>
+  <div id="overlay-layer">${overlayCode}</div>
 </body>
 </html>`;
 
-    const blob = new Blob([completeHTML], { type: 'text/html' });
+    const blob = new Blob([fullHtml], { type: "text/html" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = 'marketing-video.html';
+    a.download = "marketing-video.html";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-
-    toast({
-      title: "Downloaded",
-      description: "HTML file saved successfully!",
-    });
+    toast({ title: "Downloaded", description: "HTML overlay saved!" });
   };
 
   return (
     <div className="relative w-full max-w-4xl">
-      <div className="relative aspect-video bg-card rounded-lg overflow-hidden shadow-lg border border-border">
-        {!overlayCode ? (
-          // Show placeholder when no overlay is generated
-          <div className="flex items-center justify-center h-full bg-muted/50">
-            <div className="text-center p-8">
-              <p className="text-foreground font-medium mb-2">No overlay generated yet</p>
-              <p className="text-sm text-muted-foreground">
-                Use the chat to describe the marketing overlay you want to create
-              </p>
+      <div className="relative aspect-video bg-black rounded-lg overflow-hidden shadow-2xl border border-gray-800">
+        {/* Layer 1: Das React Video */}
+        <video
+          src={currentVideoSrc}
+          className="absolute inset-0 w-full h-full object-cover"
+          autoPlay
+          loop
+          muted
+          playsInline
+        />
+
+        {/* Layer 2: Das Overlay Iframe */}
+        {overlayCode ? (
+          <iframe
+            className="absolute inset-0 w-full h-full border-0 z-10 pointer-events-none"
+            srcDoc={srcDoc}
+            title="Overlay Preview"
+            sandbox="allow-scripts allow-same-origin"
+            style={{ background: "transparent" }}
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="bg-black/50 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm border border-white/10">
+              Warte auf Overlay...
             </div>
           </div>
-        ) : overlayError ? (
-          // Show error message
-          <div className="flex items-center justify-center h-full bg-background/80 backdrop-blur-sm">
-            <div className="bg-card border border-border rounded-lg p-6 max-w-md text-center shadow-lg">
-              <p className="text-foreground font-medium mb-2">Overlay Error</p>
-              <p className="text-sm text-muted-foreground mb-4">
-                The generated HTML appears to be incomplete or malformed.
-              </p>
+        )}
+
+        {/* Buttons */}
+        <div className="absolute bottom-4 left-4 z-20 flex gap-2">
+          {overlayCode && (
+            <>
+              <Button onClick={handleDownload} variant="secondary" size="sm" className="shadow-lg">
+                <Download className="w-4 h-4 mr-2" />
+                Export HTML
+              </Button>
               {onResetOverlay && (
-                <Button onClick={onResetOverlay} variant="secondary">
-                  <RotateCcw className="w-4 h-4 mr-2" />
-                  Reset Overlay
+                <Button onClick={onResetOverlay} variant="ghost" size="sm" className="text-white hover:bg-white/20">
+                  <RotateCcw className="w-4 h-4" />
                 </Button>
               )}
-            </div>
-          </div>
-        ) : (
-          // Layered approach: Video (React) + Overlay (iframe)
-          <>
-            {/* Native video element as background */}
-            <video
-              ref={videoRef}
-              className="absolute inset-0 w-full h-full object-cover"
-              src={currentVideoSrc}
-              autoPlay
-              loop
-              muted
-              playsInline
-            />
-            
-            {/* Overlay iframe on top with transparent background */}
-            <iframe
-              ref={iframeRef}
-              className="absolute inset-0 w-full h-full border-0 pointer-events-none"
-              style={{ zIndex: 10, background: 'transparent' }}
-              title="Marketing Video Overlay"
-              sandbox="allow-scripts allow-same-origin"
-            />
-          </>
-        )}
-
-        {/* Action Buttons */}
-        {overlayCode && !overlayError && (
-          <div className="absolute bottom-4 left-4 flex gap-2 z-20">
-            <Button
-              onClick={handleDownload}
-              variant="secondary"
-              size="sm"
-              className="shadow-lg"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Download HTML
-            </Button>
-            
-            {onResetOverlay && (
-              <Button
-                onClick={onResetOverlay}
-                variant="secondary"
-                size="sm"
-                className="shadow-lg"
-              >
-                <RotateCcw className="w-4 h-4 mr-2" />
-                Reset
-              </Button>
-            )}
-          </div>
-        )}
-      </div>
-
-      {!videoSrc && (
-        <div className="mt-4 text-center">
-          <p className="text-sm text-muted-foreground">
-            Using demo video. Upload your own to get started.
-          </p>
+            </>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 };
