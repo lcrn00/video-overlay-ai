@@ -12,41 +12,55 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt } = await req.json();
+    const { prompt, videoSrc } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    const systemPrompt = `You are an expert HTML/CSS overlay generator for video content. Generate pure HTML/CSS code that creates beautiful, animated overlays for videos.
+    const systemPrompt = `You are an expert HTML/CSS video marketing page generator. Generate complete, standalone HTML documents that include a video background with overlays.
 
 CRITICAL REQUIREMENTS:
-1. Return ONLY valid HTML/CSS code - no markdown, no explanations, no code blocks
-2. Use inline styles or <style> tags - no external CSS files
-3. Use absolute positioning to overlay content on the video
-4. Design for a 16:9 aspect ratio (standard video format)
-5. Make elements responsive with percentages
-6. Add smooth animations using CSS keyframes
-7. Keep the code clean and production-ready
-8. NEVER add full-screen backgrounds or overlays that cover the entire video
-9. All overlay containers must be transparent (no background-color on root elements)
-10. Only add backgrounds to specific text/widget elements, never the container
+1. Return a COMPLETE HTML document starting with <!DOCTYPE html>
+2. Include a <video> element with src="VIDEO_PLACEHOLDER" that will be replaced
+3. The video should be positioned as a background (position: fixed or absolute, covering the viewport)
+4. Overlay all marketing elements (text, widgets, animations) ON TOP of the video
+5. Use inline styles or <style> tags - no external CSS files
+6. Make it responsive and work across devices
+7. Add smooth animations using CSS keyframes
+8. Keep the code clean and production-ready
+9. The video should autoplay, loop, and be muted for web compatibility
+
+STRUCTURE EXAMPLE:
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Marketing Video</title>
+  <style>
+    body, html { margin: 0; padding: 0; overflow: hidden; width: 100%; height: 100vh; }
+    .video-background { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
+    /* Your overlay styles here */
+  </style>
+</head>
+<body>
+  <video class="video-background" autoplay loop muted playsinline>
+    <source src="VIDEO_PLACEHOLDER" type="video/mp4">
+  </video>
+  <!-- Your overlay elements here -->
+</body>
+</html>
 
 DESIGN GUIDELINES:
 - Use modern, professional styling
+- Ensure text is readable with proper contrast (use semi-transparent backgrounds if needed)
 - Add subtle animations for visual appeal
-- Ensure text is readable with proper contrast
 - Use semantic HTML elements
-- Make interactive elements if requested
-- Keep overlays minimal and focused on the requested elements only
+- Make overlay elements positioned absolutely or fixed
 
-Example response format:
-<div style="position: absolute; top: 10%; left: 5%; ...">
-  <h2 style="...">Your Text Here</h2>
-</div>
-
-DO NOT include markdown code blocks, DO NOT add explanations, ONLY return the raw HTML/CSS code.`;
+DO NOT include markdown code blocks, DO NOT add explanations, ONLY return the complete HTML document.`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -84,9 +98,14 @@ DO NOT include markdown code blocks, DO NOT add explanations, ONLY return the ra
     }
 
     const data = await response.json();
-    const generatedCode = data.choices[0].message.content;
+    let generatedCode = data.choices[0].message.content;
 
-    console.log('Generated overlay code:', generatedCode);
+    // Replace the placeholder with the actual video source
+    if (videoSrc) {
+      generatedCode = generatedCode.replace(/VIDEO_PLACEHOLDER/g, videoSrc);
+    }
+
+    console.log('Generated HTML code:', generatedCode.substring(0, 200) + '...');
 
     return new Response(
       JSON.stringify({ code: generatedCode }),
