@@ -12,25 +12,24 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, videoSrc } = await req.json();
+    const { prompt } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    const systemPrompt = `You are an expert HTML/CSS video marketing page generator. Generate complete, standalone HTML documents that include a video background with overlays.
+    const systemPrompt = `You are an expert HTML/CSS overlay generator for marketing videos. Generate ONLY HTML/CSS overlays (text, widgets, animations) with a transparent background.
 
 CRITICAL REQUIREMENTS:
 1. Return a COMPLETE HTML document starting with <!DOCTYPE html>
-2. Include a <video> element with src="VIDEO_PLACEHOLDER" that will be replaced
-3. The video should be positioned as a background (position: fixed or absolute, covering the viewport)
-4. Overlay all marketing elements (text, widgets, animations) ON TOP of the video
+2. DO NOT include a <video> element - the video is handled separately
+3. The body MUST have a transparent background (background: transparent !important)
+4. All overlay elements must be positioned to work on top of a video background
 5. Use inline styles or <style> tags - no external CSS files
 6. Make it responsive and work across devices
 7. Add smooth animations using CSS keyframes
 8. Keep the code clean and production-ready
-9. The video should autoplay, loop, and be muted for web compatibility
 
 STRUCTURE EXAMPLE:
 <!DOCTYPE html>
@@ -38,17 +37,20 @@ STRUCTURE EXAMPLE:
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Marketing Video</title>
+  <title>Video Overlay</title>
   <style>
-    body, html { margin: 0; padding: 0; overflow: hidden; width: 100%; height: 100vh; }
-    .video-background { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
-    /* Your overlay styles here */
+    body, html { 
+      margin: 0; 
+      padding: 0; 
+      width: 100%; 
+      height: 100vh; 
+      background: transparent !important;
+      overflow: hidden;
+    }
+    /* Your overlay styles here - positioned absolutely or fixed */
   </style>
 </head>
 <body>
-  <video class="video-background" autoplay loop muted playsinline>
-    <source src="VIDEO_PLACEHOLDER" type="video/mp4">
-  </video>
   <!-- Your overlay elements here -->
 </body>
 </html>
@@ -59,6 +61,7 @@ DESIGN GUIDELINES:
 - Add subtle animations for visual appeal
 - Use semantic HTML elements
 - Make overlay elements positioned absolutely or fixed
+- NEVER add opaque backgrounds that would hide the video
 
 DO NOT include markdown code blocks, DO NOT add explanations, ONLY return the complete HTML document.`;
 
@@ -98,14 +101,9 @@ DO NOT include markdown code blocks, DO NOT add explanations, ONLY return the co
     }
 
     const data = await response.json();
-    let generatedCode = data.choices[0].message.content;
+    const generatedCode = data.choices[0].message.content;
 
-    // Replace the placeholder with the actual video source
-    if (videoSrc) {
-      generatedCode = generatedCode.replace(/VIDEO_PLACEHOLDER/g, videoSrc);
-    }
-
-    console.log('Generated HTML code:', generatedCode.substring(0, 200) + '...');
+    console.log('Generated overlay HTML:', generatedCode.substring(0, 200) + '...');
 
     return new Response(
       JSON.stringify({ code: generatedCode }),
