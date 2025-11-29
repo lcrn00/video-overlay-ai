@@ -29,6 +29,9 @@ CRITICAL REQUIREMENTS:
 5. Make elements responsive with percentages
 6. Add smooth animations using CSS keyframes
 7. Keep the code clean and production-ready
+8. NEVER add full-screen backgrounds or overlays that cover the entire video
+9. All overlay containers must be transparent (no background-color on root elements)
+10. Only add backgrounds to specific text/widget elements, never the container
 
 DESIGN GUIDELINES:
 - Use modern, professional styling
@@ -36,6 +39,7 @@ DESIGN GUIDELINES:
 - Ensure text is readable with proper contrast
 - Use semantic HTML elements
 - Make interactive elements if requested
+- Keep overlays minimal and focused on the requested elements only
 
 Example response format:
 <div style="position: absolute; top: 10%; left: 5%; ...">
@@ -57,7 +61,7 @@ DO NOT include markdown code blocks, DO NOT add explanations, ONLY return the ra
           { role: 'user', content: prompt }
         ],
         temperature: 0.7,
-        max_tokens: 2000,
+        max_tokens: 6000,
       }),
     });
 
