@@ -48,10 +48,20 @@ const ChatInterface = ({ videoSrc, onOverlayGenerated }: ChatInterfaceProps) => 
         body: { prompt: userMessage },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Edge function error:', error);
+        throw new Error(error.message || 'Failed to generate overlay');
+      }
 
-      const generatedCode = data.code;
-      
+      if (!data?.code) {
+        throw new Error('No overlay code generated');
+      }
+
+      // Basic validation of generated code
+      if (data.code.length < 10) {
+        throw new Error('Generated overlay is too short, please try rephrasing your request');
+      }
+
       // Add assistant response without showing code
       setMessages((prev) => [
         ...prev,
@@ -61,7 +71,7 @@ const ChatInterface = ({ videoSrc, onOverlayGenerated }: ChatInterfaceProps) => 
         },
       ]);
 
-      onOverlayGenerated(generatedCode);
+      onOverlayGenerated(data.code);
     } catch (error: any) {
       console.error("Error generating overlay:", error);
       
@@ -71,6 +81,8 @@ const ChatInterface = ({ videoSrc, onOverlayGenerated }: ChatInterfaceProps) => 
         errorMessage = "Rate limit exceeded. Please try again in a moment.";
       } else if (error.message?.includes('Payment required')) {
         errorMessage = "Payment required. Please add credits to your workspace.";
+      } else if (error.message) {
+        errorMessage = error.message;
       }
 
       toast({
@@ -83,7 +95,7 @@ const ChatInterface = ({ videoSrc, onOverlayGenerated }: ChatInterfaceProps) => 
         ...prev,
         {
           role: "assistant",
-          content: "Sorry, I encountered an error. Please try again.",
+          content: `Sorry, I encountered an error: ${errorMessage}. Please try again with a different description.`,
         },
       ]);
     } finally {

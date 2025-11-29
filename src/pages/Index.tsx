@@ -39,7 +39,11 @@ const Index = () => {
 
         {/* Right Panel - Live Canvas */}
         <div className="flex-1 flex items-center justify-center bg-muted/30 p-8">
-          <VideoCanvas videoSrc={videoSrc} overlayCode={overlayCode} />
+          <VideoCanvas 
+            videoSrc={videoSrc} 
+            overlayCode={overlayCode} 
+            onResetOverlay={() => setOverlayCode("")}
+          />
         </div>
       </div>
     </div>
