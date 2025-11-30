@@ -12,7 +12,8 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, previousCode } = await req.json(); // Wir holen uns den alten Code
+    // Wir holen uns prompt UND previousCode (für Follow-ups)
+    const { prompt, previousCode } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (!LOVABLE_API_KEY) {
@@ -35,8 +36,7 @@ CRITICAL RULES:
 DO NOT wrap in markdown code blocks. Just return the raw code string.`;
 
     if (previousCode) {
-      // MODUS: EDITIEREN
-      // Wir geben der KI den alten Code und den neuen Wunsch
+      // MODUS: EDITIEREN (Follow-up)
       messages = [
         { role: "system", content: baseSystemPrompt },
         {
@@ -87,7 +87,11 @@ DO NOT wrap in markdown code blocks. Just return the raw code string.`;
     });
   } catch (error) {
     console.error("Error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+
+    // FIX: Wir prüfen, ob 'error' wirklich ein Error-Objekt ist, bevor wir .message abrufen
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
+    return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
