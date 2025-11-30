@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, previousCode } = await req.json();
+    const { prompt, previousCode, mode } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (!LOVABLE_API_KEY) {
@@ -20,56 +20,74 @@ serve(async (req) => {
     }
 
     let messages = [];
+    let temperature = 0.7;
 
-    // Base rules for both modes
-    const baseRules = `
-CRITICAL RULES:
-1. BACKGROUND MUST BE TRANSPARENT. Do NOT add a background-color to body or html.
-2. Do NOT include a <video> tag. The video is already playing in the background.
-3. Return ONLY the inner HTML content (divs, styles, scripts) for the overlay. 
-4. NO <!DOCTYPE html>, NO <html>, NO <head>, NO <body> tags. Just the content.
-5. Use absolute positioning to place elements (e.g., "bottom-left badge", "center title").
-6. Add CSS animations (keyframes) to make elements fade in, slide up, or pulse.
-DO NOT wrap in markdown code blocks. Just return the raw code string.`;
+    // === BASIS REGELN ===
+    const techSpecs = `
+TECHNICAL SPECS:
+- Output ONLY valid HTML/CSS code snippet.
+- NO <!DOCTYPE html>, NO <html>, NO <head>, NO <body> tags.
+- Background MUST be transparent.
+- No <video> tags.
+- Use CSS Keyframes for animations.
+- Use absolute positioning for layout.
+`;
 
-    if (previousCode) {
-      // MODE 1: STRICT EDITOR
-      // We give the AI the old code and tell it to ONLY change what's asked.
+    if (mode === "edit" && previousCode) {
+      // === MODUS: UNIFIED DIFF EDITOR (Methode 3) ===
+      temperature = 0.0; // Null Kreativität, pure Logik
+
       messages = [
         {
           role: "system",
-          content: `You are a precision code editor for HTML/CSS overlays. 
-Your goal is to MODIFY existing code based on user requests without breaking the existing design or layout unless explicitly asked.
+          content: `You are a Code Patching Engine.
+You do NOT rewrite files. You only output SEARCH/REPLACE blocks to modify existing code.
 
-${baseRules}
+YOUR FORMAT RULES (Strictly follow this):
+1. Identify the EXACT block of code that needs changing.
+2. Output a patch in this format:
 
-STRICT EDITING GUIDELINES:
-- Only modify the parts of the code relevant to the user's request.
-- PRESERVE existing animations, positions, and styles if the user didn't ask to change them.
-- If the user asks to change text, only change text.
-- If the user asks to change color, only change color.
-- Do NOT regenerate the whole layout from scratch. Stick to the provided structure.`,
+<<<<<<< SEARCH
+[Exact lines from the original code to be replaced]
+=======
+[New lines to replace the search block]
+>>>>>>> REPLACE
+
+3. The "SEARCH" block must match the existing code character-by-character (including whitespace).
+4. Include enough context (1-2 lines around the change) in the SEARCH block to ensure uniqueness.
+5. If multiple changes are needed, output multiple blocks.
+6. Do NOT output the full file. ONLY the blocks.
+`,
         },
         {
           role: "user",
-          content: `Here is the CURRENT CODE:
+          content: `
+ORIGINAL CODE:
 \`\`\`html
 ${previousCode}
 \`\`\`
 
 USER REQUEST: "${prompt}"
 
-TASK: Return the UPDATED code. Keep everything else exactly the same.`,
+TASK: Generate the SEARCH/REPLACE blocks to apply this change. Be precise.`,
         },
       ];
     } else {
-      // MODE 2: CREATOR
+      // === MODUS: CREATOR (Bleibt gleich) ===
       messages = [
         {
           role: "system",
           content: `You are an expert UI/UX Designer for Video Overlays.
-Your job is to generate HTML/CSS snippets that will be overlayed ON TOP of a background video.
-${baseRules}`,
+Your goal is to create a stunning, modern, animated overlay from scratch.
+
+DESIGN GUIDELINES:
+- Modern SaaS aesthetic (clean, glassmorphism, bold typography).
+- Elements should fly in, fade in, or pop up.
+- Make it look professional.
+
+${techSpecs}
+
+DO NOT wrap in markdown code blocks. Just return the raw code string.`,
         },
         { role: "user", content: `Create a marketing overlay for: ${prompt}` },
       ];
@@ -84,7 +102,7 @@ ${baseRules}`,
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: messages,
-        temperature: previousCode ? 0.2 : 0.7, // Lower temperature for editing to be more precise/less creative
+        temperature: temperature,
         max_tokens: 2000,
       }),
     });
@@ -95,15 +113,14 @@ ${baseRules}`,
     }
 
     const data = await response.json();
-    const generatedCode = data.choices[0].message.content;
+    const generatedContent = data.choices[0].message.content;
 
-    return new Response(JSON.stringify({ code: generatedCode }), {
+    return new Response(JSON.stringify({ code: generatedContent }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
     console.error("Error:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
-
     return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
