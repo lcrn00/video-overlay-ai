@@ -59,9 +59,9 @@ const Index = () => {
                 <div className="flex-1 overflow-hidden">
                   <ChatInterface
                     videoSrc={videoSrc}
-                    currentCode={overlayCode} // PASSING MEMORY: The current code
+                    currentCode={overlayCode} // WICHTIG: Das Gedächtnis
                     onOverlayGenerated={setOverlayCode}
-                    onReset={() => setOverlayCode("")} // RESET: Function to clear memory
+                    onReset={() => setOverlayCode("")}
                   />
                 </div>
               </div>
@@ -101,7 +101,7 @@ const Index = () => {
                 </div>
 
                 <p className="text-center text-xs text-muted-foreground mt-4">
-                  Export to save your video as a standalone HTML file.
+                  Changes in the chat appear here in real-time. Export when you're ready.
                 </p>
               </div>
             </div>

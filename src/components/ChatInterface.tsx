@@ -23,7 +23,7 @@ const ChatInterface = ({ videoSrc, currentCode, onOverlayGenerated, onReset }: C
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "Welcome! I'm ready to create your overlay. Just describe what you want.",
+      content: "Welcome! Describe your overlay or upload a video to start.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -31,6 +31,7 @@ const ChatInterface = ({ videoSrc, currentCode, onOverlayGenerated, onReset }: C
   const { toast } = useToast();
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Automatischer Modus-Wechsel
   const mode = currentCode ? "edit" : "create";
 
   useEffect(() => {
@@ -50,33 +51,36 @@ const ChatInterface = ({ videoSrc, currentCode, onOverlayGenerated, onReset }: C
     toast({ title: "Fresh Start", description: "Switched back to Creator Mode." });
   };
 
-  // === DIE PATCHING ENGINE ===
+  // === DIE PROFI-FUNKTION: PATCHING ===
+  // Das hier ist "Mini-Git" für deine App
   const applyPatch = (original: string, patch: string): string => {
-    // Prüfen, ob es überhaupt ein Patch ist
     if (!patch.includes("<<<<<<< SEARCH")) {
-      return patch; // Kein Patch -> Es ist wohl neuer Code (Creator Mode)
+      return patch; // Kein Patch -> Wahrscheinlich neuer Code
     }
 
     let newCode = original;
+    // Wir suchen nach Blöcken: SEARCH ... ======= ... REPLACE
     const regex = /<<<<<<< SEARCH\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> REPLACE/g;
     let match;
     let changesApplied = 0;
 
     while ((match = regex.exec(patch)) !== null) {
-      const [_, searchBlock, replaceBlock] = match;
+      const [fullMatch, searchBlock, replaceBlock] = match;
 
-      // Wir versuchen den Block zu finden
       if (newCode.includes(searchBlock)) {
         newCode = newCode.replace(searchBlock, replaceBlock);
         changesApplied++;
       } else {
-        // Fallback: Manchmal macht die KI Whitespace-Fehler. Wir versuchen es getrimmt.
-        const trimmedCode = newCode.replace(/\s+/g, " ");
-        const trimmedSearch = searchBlock.replace(/\s+/g, " ");
+        // Fallback: Manchmal sind Leerzeichen anders. Wir versuchen es entspannter.
+        // Das ist wichtig, weil LLMs manchmal Whitespaces verändern.
+        const normalize = (str: string) => str.replace(/\s+/g, " ").trim();
+        const normOriginal = normalize(newCode);
+        const normSearch = normalize(searchBlock);
 
-        if (trimmedCode.includes(trimmedSearch)) {
-          // Hier müssten wir komplexer ersetzen, für jetzt warnen wir nur
-          console.warn("Fuzzy match found but strict replace failed for:", searchBlock);
+        if (normOriginal.includes(normSearch)) {
+          // Wenn wir es unscharf finden, ist ein direktes Replace schwer.
+          // Fürs Erste loggen wir das Problem. In einer V2 könnte man hier schlauer ersetzen.
+          console.warn("Fuzzy match found but strict replace failed. Skipping block.");
         } else {
           console.error("Could not find code block to replace:", searchBlock);
         }
@@ -84,8 +88,7 @@ const ChatInterface = ({ videoSrc, currentCode, onOverlayGenerated, onReset }: C
     }
 
     if (changesApplied === 0) {
-      console.warn("Patch received but no changes applied. Structure mismatch?");
-      // Im Zweifel geben wir das Original zurück oder den Patch als Fehler
+      toast({ title: "Patch failed", description: "Could not apply changes exactly.", variant: "destructive" });
       return original;
     }
 
@@ -113,7 +116,7 @@ const ChatInterface = ({ videoSrc, currentCode, onOverlayGenerated, onReset }: C
       if (error) throw new Error(error.message);
       if (!data?.code) throw new Error("No response generated");
 
-      // Hier entscheiden wir: Ist es ein neuer Code oder ein Patch?
+      // Entscheiden: Neuer Code oder Patch anwenden?
       const finalCode = mode === "edit" ? applyPatch(currentCode, data.code) : data.code;
 
       setMessages((prev) => [

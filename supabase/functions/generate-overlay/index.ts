@@ -35,7 +35,7 @@ TECHNICAL SPECS:
 
     if (mode === "edit" && previousCode) {
       // === MODUS: UNIFIED DIFF EDITOR (Methode 3) ===
-      temperature = 0.0; // Null Kreativität, pure Logik
+      temperature = 0.0; // WICHTIG: Null Kreativität für präzise Diffs
 
       messages = [
         {
