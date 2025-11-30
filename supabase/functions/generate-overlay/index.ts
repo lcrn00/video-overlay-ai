@@ -19,43 +19,60 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    let systemPrompt = "";
-    let userMessage = "";
+    let messages = [];
 
-    // MODUS 1: ÄNDERUNG (Sehr strikt)
+    // Base rules for both modes
+    const baseRules = `
+CRITICAL RULES:
+1. BACKGROUND MUST BE TRANSPARENT. Do NOT add a background-color to body or html.
+2. Do NOT include a <video> tag. The video is already playing in the background.
+3. Return ONLY the inner HTML content (divs, styles, scripts) for the overlay. 
+4. NO <!DOCTYPE html>, NO <html>, NO <head>, NO <body> tags. Just the content.
+5. Use absolute positioning to place elements (e.g., "bottom-left badge", "center title").
+6. Add CSS animations (keyframes) to make elements fade in, slide up, or pulse.
+DO NOT wrap in markdown code blocks. Just return the raw code string.`;
+
     if (previousCode) {
-      systemPrompt = `You are a precision code editor engine for HTML/CSS overlays.
-Your ONLY job is to modify the existing code based on the user's request.
+      // MODE 1: STRICT EDITOR
+      // We give the AI the old code and tell it to ONLY change what's asked.
+      messages = [
+        {
+          role: "system",
+          content: `You are a precision code editor for HTML/CSS overlays. 
+Your goal is to MODIFY existing code based on user requests without breaking the existing design or layout unless explicitly asked.
 
-STRICT EDITING RULES:
-1. PRESERVE EVERYTHING that is not explicitly mentioned in the request.
-2. DO NOT change positions, colors, sizes, or animations unless asked.
-3. If the user asks to change an icon, ONLY change the icon. Keep the old layout.
-4. If the user asks to animate differently, ONLY change the CSS keyframes/animation properties.
-5. NO <!DOCTYPE html>, NO <html>, NO <head>, NO <body> tags. Just the inner content snippet.
-6. RETURN THE FULL UPDATED CODE, not just the diff.
+${baseRules}
 
-CURRENT CODE CONTEXT:
-${previousCode}`;
+STRICT EDITING GUIDELINES:
+- Only modify the parts of the code relevant to the user's request.
+- PRESERVE existing animations, positions, and styles if the user didn't ask to change them.
+- If the user asks to change text, only change text.
+- If the user asks to change color, only change color.
+- Do NOT regenerate the whole layout from scratch. Stick to the provided structure.`,
+        },
+        {
+          role: "user",
+          content: `Here is the CURRENT CODE:
+\`\`\`html
+${previousCode}
+\`\`\`
 
-      userMessage = `CHANGE REQUEST: ${prompt}
-      
-      Remember: Only touch what I asked for. Keep the rest exactly as is.`;
-    }
-    // MODUS 2: NEU ERSTELLUNG (Kreativ)
-    else {
-      systemPrompt = `You are an expert UI/UX Designer for Video Overlays.
-Generate a new, transparent HTML/CSS overlay snippet.
+USER REQUEST: "${prompt}"
 
-RULES:
-1. Transparent background.
-2. No video tags (video is in background).
-3. Modern SaaS design.
-4. Absolute positioning.
-5. CSS Animations included.
-6. NO <!DOCTYPE html> tags. Just the div/style snippet.`;
-
-      userMessage = `Create a marketing overlay for: ${prompt}`;
+TASK: Return the UPDATED code. Keep everything else exactly the same.`,
+        },
+      ];
+    } else {
+      // MODE 2: CREATOR
+      messages = [
+        {
+          role: "system",
+          content: `You are an expert UI/UX Designer for Video Overlays.
+Your job is to generate HTML/CSS snippets that will be overlayed ON TOP of a background video.
+${baseRules}`,
+        },
+        { role: "user", content: `Create a marketing overlay for: ${prompt}` },
+      ];
     }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -66,11 +83,8 @@ RULES:
       },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userMessage },
-        ],
-        temperature: previousCode ? 0.2 : 0.7, // Niedrige Temperatur beim Editieren für Präzision!
+        messages: messages,
+        temperature: previousCode ? 0.2 : 0.7, // Lower temperature for editing to be more precise/less creative
         max_tokens: 2000,
       }),
     });
@@ -89,6 +103,7 @@ RULES:
   } catch (error) {
     console.error("Error:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
+
     return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

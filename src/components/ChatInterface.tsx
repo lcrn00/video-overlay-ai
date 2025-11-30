@@ -13,9 +13,9 @@ interface Message {
 
 interface ChatInterfaceProps {
   videoSrc: string;
-  currentCode: string; // Neu: Wir brauchen den aktuellen Code für das "Gedächtnis"
+  currentCode: string; // NEW: Receive the current code
   onOverlayGenerated: (code: string) => void;
-  onReset: () => void; // Neu: Reset-Funktion
+  onReset: () => void; // NEW: Receive reset function
 }
 
 const ChatInterface = ({ videoSrc, currentCode, onOverlayGenerated, onReset }: ChatInterfaceProps) => {
@@ -36,6 +36,7 @@ const ChatInterface = ({ videoSrc, currentCode, onOverlayGenerated, onReset }: C
     }
   }, [messages]);
 
+  // NEW: Button Logic to clear everything
   const handleNewProject = () => {
     setMessages([
       {
@@ -60,7 +61,7 @@ const ChatInterface = ({ videoSrc, currentCode, onOverlayGenerated, onReset }: C
       const { data, error } = await supabase.functions.invoke("generate-overlay", {
         body: {
           prompt: userMessage,
-          previousCode: currentCode || null, // Hier senden wir das "Gedächtnis" mit
+          previousCode: currentCode || null, // NEW: Sending the memory to backend
         },
       });
 
@@ -91,7 +92,7 @@ const ChatInterface = ({ videoSrc, currentCode, onOverlayGenerated, onReset }: C
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header mit Reset Button */}
+      {/* NEW: Toolbar for Reset */}
       <div className="p-2 border-b border-border/30 flex justify-end bg-background/50">
         <Button
           variant="ghost"

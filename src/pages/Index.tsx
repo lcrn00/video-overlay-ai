@@ -59,9 +59,9 @@ const Index = () => {
                 <div className="flex-1 overflow-hidden">
                   <ChatInterface
                     videoSrc={videoSrc}
-                    currentCode={overlayCode} // Hier wird das Gedächtnis übergeben
+                    currentCode={overlayCode} // PASSING MEMORY: The current code
                     onOverlayGenerated={setOverlayCode}
-                    onReset={() => setOverlayCode("")} // Der Reset löscht das Gedächtnis
+                    onReset={() => setOverlayCode("")} // RESET: Function to clear memory
                   />
                 </div>
               </div>
