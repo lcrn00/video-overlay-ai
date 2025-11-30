@@ -20,11 +20,12 @@ serve(async (req) => {
     }
 
     let messages = [];
-    let temperature = 0.7;
+    // Temperatur extrem niedrig für Editing, damit die KI nicht "halluziniert"
+    let temperature = 0.1;
 
     // === BASIS REGELN ===
-    const techSpecs = `
-TECHNICAL SPECS:
+    const baseRules = `
+CRITICAL TECH SPECS:
 - Output ONLY valid HTML/CSS code snippet.
 - NO <!DOCTYPE html>, NO <html>, NO <head>, NO <body> tags.
 - Background MUST be transparent.
@@ -34,46 +35,54 @@ TECHNICAL SPECS:
 `;
 
     if (mode === "edit" && previousCode) {
-      // === MODUS: UNIFIED DIFF EDITOR (Methode 3) ===
-      temperature = 0.0; // WICHTIG: Null Kreativität für präzise Diffs
+      // === MODUS: INTELLIGENTER EDITOR MIT BEISPIELEN (FEW-SHOT) ===
 
       messages = [
         {
           role: "system",
-          content: `You are a Code Patching Engine.
-You do NOT rewrite files. You only output SEARCH/REPLACE blocks to modify existing code.
+          content: `You are a Strict Code Editor Engine.
+You receive HTML code and a User Request.
+Your job is to REWRITE the code to implement the request.
 
-YOUR FORMAT RULES (Strictly follow this):
-1. Identify the EXACT block of code that needs changing.
-2. Output a patch in this format:
+CRITICAL BEHAVIOR RULES:
+1. MINIMAL CHANGES: Do NOT change layout, colors, or animations unless explicitly asked.
+2. PRESERVE STRUCTURE: Keep the existing HTML structure and Class names exactly as they are.
+3. OUTPUT: Return the FULL valid HTML/CSS snippet with the changes applied.
 
-<<<<<<< SEARCH
-[Exact lines from the original code to be replaced]
-=======
-[New lines to replace the search block]
->>>>>>> REPLACE
+${baseRules}
 
-3. The "SEARCH" block must match the existing code character-by-character (including whitespace).
-4. Include enough context (1-2 lines around the change) in the SEARCH block to ensure uniqueness.
-5. If multiple changes are needed, output multiple blocks.
-6. Do NOT output the full file. ONLY the blocks.
+### EXAMPLE OF EXPECTED BEHAVIOR ###
+
+[INPUT CODE]
+<style>.box { color: red; font-size: 20px; }</style>
+<div class="box">Hello World</div>
+
+[USER REQUEST]
+"Change the text to 'Bye' and make it blue"
+
+[YOUR OUTPUT]
+<style>.box { color: blue; font-size: 20px; }</style>
+<div class="box">Bye</div>
+
+###################################
 `,
         },
         {
           role: "user",
           content: `
-ORIGINAL CODE:
+CURRENT CODE:
 \`\`\`html
 ${previousCode}
 \`\`\`
 
 USER REQUEST: "${prompt}"
 
-TASK: Generate the SEARCH/REPLACE blocks to apply this change. Be precise.`,
+TASK: Apply the change request. Return the FULL updated code block. Do NOT add markdown.`,
         },
       ];
     } else {
-      // === MODUS: CREATOR (Bleibt gleich) ===
+      // === MODUS: CREATOR (Neuerstellung) ===
+      temperature = 0.7; // Hier darf die KI kreativ sein
       messages = [
         {
           role: "system",
@@ -85,7 +94,7 @@ DESIGN GUIDELINES:
 - Elements should fly in, fade in, or pop up.
 - Make it look professional.
 
-${techSpecs}
+${baseRules}
 
 DO NOT wrap in markdown code blocks. Just return the raw code string.`,
         },
@@ -103,7 +112,7 @@ DO NOT wrap in markdown code blocks. Just return the raw code string.`,
         model: "google/gemini-2.5-flash",
         messages: messages,
         temperature: temperature,
-        max_tokens: 2000,
+        max_tokens: 4000, // Genug Tokens für den vollen Code
       }),
     });
 
@@ -113,9 +122,9 @@ DO NOT wrap in markdown code blocks. Just return the raw code string.`,
     }
 
     const data = await response.json();
-    const generatedContent = data.choices[0].message.content;
+    const generatedCode = data.choices[0].message.content;
 
-    return new Response(JSON.stringify({ code: generatedContent }), {
+    return new Response(JSON.stringify({ code: generatedCode }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
