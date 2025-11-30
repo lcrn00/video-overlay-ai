@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, FormEvent } from "react";
-import { Send } from "lucide-react";
+import { Send, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -15,6 +15,7 @@ interface ChatInterfaceProps {
   videoSrc: string;
   currentCode: string;
   onOverlayGenerated: (code: string) => void;
+  onReset?: () => void; // <-- NEU: optionaler Reset-Prop
 }
 
 interface GenerateOverlayResponse {
@@ -24,7 +25,7 @@ interface GenerateOverlayResponse {
   error?: string;
 }
 
-const ChatInterface = ({ videoSrc, currentCode, onOverlayGenerated }: ChatInterfaceProps) => {
+const ChatInterface = ({ videoSrc, currentCode, onOverlayGenerated, onReset }: ChatInterfaceProps) => {
   const { toast } = useToast();
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -124,9 +125,23 @@ const ChatInterface = ({ videoSrc, currentCode, onOverlayGenerated }: ChatInterf
     }
   };
 
+  const handleResetAll = () => {
+    // Overlay zurücksetzen (falls vom Parent übergeben)
+    if (onReset) {
+      onReset();
+    }
+    // Chat zurücksetzen
+    setMessages([
+      {
+        role: "assistant",
+        content: "Overlay and chat have been reset. Describe a new ad overlay you want to generate.",
+      },
+    ]);
+  };
+
   return (
     <div className="flex flex-col h-full bg-background/70 border border-border/60 rounded-2xl shadow-lg backdrop-blur-md">
-      <div className="px-4 py-3 border-b border-border/60 flex items-center justify-between">
+      <div className="px-4 py-3 border-b border-border/60 flex items-center justify-between gap-2">
         <div>
           <h2 className="font-semibold text-sm">AI Overlay Chat</h2>
           <p className="text-xs text-muted-foreground">
@@ -135,9 +150,25 @@ const ChatInterface = ({ videoSrc, currentCode, onOverlayGenerated }: ChatInterf
               : "Describe a new ad overlay you want to generate."}
           </p>
         </div>
-        {videoSrc && (
-          <span className="text-[10px] rounded-full bg-emerald-500/10 text-emerald-500 px-2 py-0.5">Video loaded</span>
-        )}
+        <div className="flex items-center gap-2">
+          {videoSrc && (
+            <span className="text-[10px] rounded-full bg-emerald-500/10 text-emerald-500 px-2 py-0.5">
+              Video loaded
+            </span>
+          )}
+          {onReset && (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-7 w-7"
+              onClick={handleResetAll}
+              title="Reset overlay & chat"
+            >
+              <RotateCcw className="w-3 h-3" />
+            </Button>
+          )}
+        </div>
       </div>
 
       <ScrollArea className="flex-1 px-4 py-3" ref={scrollRef as any}>
