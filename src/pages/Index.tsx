@@ -10,9 +10,15 @@ const Index = () => {
   const [videoSrc, setVideoSrc] = useState<string>("");
   const [overlayCode, setOverlayCode] = useState<string>("");
 
+  // Diese Funktion setzt alles zurück für ein neues Projekt
+  const handleResetAll = () => {
+    setOverlayCode("");
+    // Optional: setVideoSrc(""); falls auch das Video gelöscht werden soll
+  };
+
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background/50 backdrop-blur-3xl">
-      {/* 1. Header: Clean & Modern */}
+      {/* 1. Header */}
       <header className="flex-none border-b border-border/40 bg-background/80 backdrop-blur-md z-50">
         <div className="container mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -30,15 +36,11 @@ const Index = () => {
               <Github className="w-4 h-4" />
               GitHub
             </Button>
-            <div className="h-4 w-[1px] bg-border/60"></div>
-            <p className="text-xs text-muted-foreground">
-              Powered by <span className="font-medium text-foreground">Lovable</span>
-            </p>
           </div>
         </div>
       </header>
 
-      {/* 2. Main Workspace: Resizable Panels */}
+      {/* 2. Main Workspace */}
       <div className="flex-1 overflow-hidden">
         <ResizablePanelGroup direction="horizontal" className="h-full">
           {/* LEFT SIDEBAR: Tools */}
@@ -63,7 +65,12 @@ const Index = () => {
                   <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">AI Editor</h2>
                 </div>
                 <div className="flex-1 overflow-hidden">
-                  <ChatInterface videoSrc={videoSrc} onOverlayGenerated={setOverlayCode} />
+                  <ChatInterface
+                    videoSrc={videoSrc}
+                    currentCode={overlayCode} // WICHTIG: Wir geben den aktuellen Code weiter
+                    onOverlayGenerated={setOverlayCode}
+                    onReset={handleResetAll} // WICHTIG: Die Reset-Funktion
+                  />
                 </div>
               </div>
             </div>
