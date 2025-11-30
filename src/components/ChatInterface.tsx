@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Trash2, PlusCircle } from "lucide-react";
+import { Send, PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -13,16 +13,16 @@ interface Message {
 
 interface ChatInterfaceProps {
   videoSrc: string;
-  currentCode?: string; // Neu: Der aktuelle Code
+  currentCode: string; // Neu: Wir brauchen den aktuellen Code für das "Gedächtnis"
   onOverlayGenerated: (code: string) => void;
-  onReset?: () => void; // Neu: Reset Funktion
+  onReset: () => void; // Neu: Reset-Funktion
 }
 
 const ChatInterface = ({ videoSrc, currentCode, onOverlayGenerated, onReset }: ChatInterfaceProps) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "Welcome! Describe the overlay you want to create (e.g. 'a floating credit card').",
+      content: "Welcome! Describe your overlay or upload a video to start.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -36,16 +36,15 @@ const ChatInterface = ({ videoSrc, currentCode, onOverlayGenerated, onReset }: C
     }
   }, [messages]);
 
-  // Funktion für den "Neues Projekt" Button
   const handleNewProject = () => {
     setMessages([
       {
         role: "assistant",
-        content: "Started a new project. What should we build?",
+        content: "Context cleared. Let's start something new! What do you have in mind?",
       },
     ]);
-    if (onReset) onReset();
-    toast({ title: "New Project", description: "Context cleared." });
+    onReset();
+    toast({ title: "Fresh Start", description: "Project context has been reset." });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -61,18 +60,18 @@ const ChatInterface = ({ videoSrc, currentCode, onOverlayGenerated, onReset }: C
       const { data, error } = await supabase.functions.invoke("generate-overlay", {
         body: {
           prompt: userMessage,
-          previousCode: currentCode || null, // WICHTIG: Wir senden den alten Code mit!
+          previousCode: currentCode || null, // Hier senden wir das "Gedächtnis" mit
         },
       });
 
       if (error) throw new Error(error.message);
-      if (!data?.code) throw new Error("No overlay code generated");
+      if (!data?.code) throw new Error("No code generated");
 
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: "I updated the overlay based on your request!",
+          content: currentCode ? "I've updated the design based on your request." : "I've created the overlay for you!",
         },
       ]);
 
@@ -81,10 +80,10 @@ const ChatInterface = ({ videoSrc, currentCode, onOverlayGenerated, onReset }: C
       console.error("Error:", error);
       toast({
         title: "Error",
-        description: "Failed to generate overlay.",
+        description: "Failed to generate overlay. Please try again.",
         variant: "destructive",
       });
-      setMessages((prev) => [...prev, { role: "assistant", content: "Sorry, something went wrong." }]);
+      setMessages((prev) => [...prev, { role: "assistant", content: "Sorry, I ran into an issue generating that." }]);
     } finally {
       setIsLoading(false);
     }
@@ -93,14 +92,14 @@ const ChatInterface = ({ videoSrc, currentCode, onOverlayGenerated, onReset }: C
   return (
     <div className="flex flex-col h-full">
       {/* Header mit Reset Button */}
-      <div className="p-2 border-b border-border/30 flex justify-end">
+      <div className="p-2 border-b border-border/30 flex justify-end bg-background/50">
         <Button
           variant="ghost"
           size="sm"
           onClick={handleNewProject}
-          className="text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 gap-1"
+          className="text-xs text-muted-foreground hover:text-primary gap-1.5 h-8"
         >
-          <PlusCircle className="w-3 h-3" />
+          <PlusCircle className="w-3.5 h-3.5" />
           New Project
         </Button>
       </div>
@@ -110,21 +109,23 @@ const ChatInterface = ({ videoSrc, currentCode, onOverlayGenerated, onReset }: C
           {messages.map((message, index) => (
             <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
               <div
-                className={`max-w-[85%] rounded-lg px-4 py-2 ${
-                  message.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
+                className={`max-w-[85%] rounded-lg px-4 py-2 text-sm shadow-sm ${
+                  message.role === "user"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted/80 text-foreground border border-border/50"
                 }`}
               >
-                <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                {message.content}
               </div>
             </div>
           ))}
           {isLoading && (
             <div className="flex justify-start">
-              <div className="bg-muted text-foreground rounded-lg px-4 py-2">
-                <div className="flex space-x-2">
-                  <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" />
-                  <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce delay-100" />
-                  <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce delay-200" />
+              <div className="bg-muted/50 text-foreground rounded-lg px-4 py-2 border border-border/50">
+                <div className="flex space-x-1.5 items-center h-5">
+                  <div className="w-1.5 h-1.5 bg-muted-foreground/60 rounded-full animate-bounce" />
+                  <div className="w-1.5 h-1.5 bg-muted-foreground/60 rounded-full animate-bounce delay-100" />
+                  <div className="w-1.5 h-1.5 bg-muted-foreground/60 rounded-full animate-bounce delay-200" />
                 </div>
               </div>
             </div>
@@ -132,16 +133,16 @@ const ChatInterface = ({ videoSrc, currentCode, onOverlayGenerated, onReset }: C
         </div>
       </ScrollArea>
 
-      <form onSubmit={handleSubmit} className="p-4 border-t border-border">
+      <form onSubmit={handleSubmit} className="p-4 border-t border-border/40 bg-background/30 backdrop-blur-sm">
         <div className="flex gap-2">
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={currentCode ? "Describe changes (e.g., 'make text bigger')..." : "Describe your overlay..."}
+            placeholder={currentCode ? "Type to edit (e.g. 'make text bigger')..." : "Describe your overlay..."}
             disabled={isLoading}
-            className="flex-1"
+            className="flex-1 shadow-sm bg-background/80 focus-visible:ring-primary/20"
           />
-          <Button type="submit" size="icon" disabled={isLoading || !input.trim()}>
+          <Button type="submit" size="icon" disabled={isLoading || !input.trim()} className="shadow-sm">
             <Send className="w-4 h-4" />
           </Button>
         </div>

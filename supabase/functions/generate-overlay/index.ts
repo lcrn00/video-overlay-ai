@@ -12,7 +12,6 @@ serve(async (req) => {
   }
 
   try {
-    // Wir holen uns prompt UND previousCode (für Follow-ups)
     const { prompt, previousCode } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
@@ -20,44 +19,43 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    let messages = [];
+    let systemPrompt = "";
+    let userMessage = "";
 
-    // Der Basis System-Prompt
-    const baseSystemPrompt = `You are an expert UI/UX Designer for Video Overlays.
-Your job is to generate HTML/CSS snippets that will be overlayed ON TOP of a background video.
-
-CRITICAL RULES:
-1. BACKGROUND MUST BE TRANSPARENT. Do NOT add a background-color to body or html.
-2. Do NOT include a <video> tag. The video is already playing in the background.
-3. Return ONLY the inner HTML content (divs, styles, scripts) for the overlay. 
-4. NO <!DOCTYPE html>, NO <html>, NO <head>, NO <body> tags. Just the content.
-5. Use absolute positioning to place elements (e.g., "bottom-left badge", "center title").
-6. Add CSS animations (keyframes) to make elements fade in, slide up, or pulse.
-DO NOT wrap in markdown code blocks. Just return the raw code string.`;
-
+    // MODUS 1: ÄNDERUNG (Sehr strikt)
     if (previousCode) {
-      // MODUS: EDITIEREN (Follow-up)
-      messages = [
-        { role: "system", content: baseSystemPrompt },
-        {
-          role: "user",
-          content: `I have an existing overlay code. I want you to MODIFY it based on my request.
-          
-          EXISTING CODE:
-          ${previousCode}
-          
-          MY REQUEST:
-          ${prompt}
-          
-          TASK: Return the UPDATED code. Keep existing styles if I didn't ask to change them. Only output the code.`,
-        },
-      ];
-    } else {
-      // MODUS: NEU ERSTELLEN
-      messages = [
-        { role: "system", content: baseSystemPrompt },
-        { role: "user", content: `Create a marketing overlay for: ${prompt}` },
-      ];
+      systemPrompt = `You are a precision code editor engine for HTML/CSS overlays.
+Your ONLY job is to modify the existing code based on the user's request.
+
+STRICT EDITING RULES:
+1. PRESERVE EVERYTHING that is not explicitly mentioned in the request.
+2. DO NOT change positions, colors, sizes, or animations unless asked.
+3. If the user asks to change an icon, ONLY change the icon. Keep the old layout.
+4. If the user asks to animate differently, ONLY change the CSS keyframes/animation properties.
+5. NO <!DOCTYPE html>, NO <html>, NO <head>, NO <body> tags. Just the inner content snippet.
+6. RETURN THE FULL UPDATED CODE, not just the diff.
+
+CURRENT CODE CONTEXT:
+${previousCode}`;
+
+      userMessage = `CHANGE REQUEST: ${prompt}
+      
+      Remember: Only touch what I asked for. Keep the rest exactly as is.`;
+    }
+    // MODUS 2: NEU ERSTELLUNG (Kreativ)
+    else {
+      systemPrompt = `You are an expert UI/UX Designer for Video Overlays.
+Generate a new, transparent HTML/CSS overlay snippet.
+
+RULES:
+1. Transparent background.
+2. No video tags (video is in background).
+3. Modern SaaS design.
+4. Absolute positioning.
+5. CSS Animations included.
+6. NO <!DOCTYPE html> tags. Just the div/style snippet.`;
+
+      userMessage = `Create a marketing overlay for: ${prompt}`;
     }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -68,8 +66,11 @@ DO NOT wrap in markdown code blocks. Just return the raw code string.`;
       },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
-        messages: messages,
-        temperature: 0.7,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userMessage },
+        ],
+        temperature: previousCode ? 0.2 : 0.7, // Niedrige Temperatur beim Editieren für Präzision!
         max_tokens: 2000,
       }),
     });
@@ -87,10 +88,7 @@ DO NOT wrap in markdown code blocks. Just return the raw code string.`;
     });
   } catch (error) {
     console.error("Error:", error);
-
-    // FIX: Wir prüfen, ob 'error' wirklich ein Error-Objekt ist, bevor wir .message abrufen
     const errorMessage = error instanceof Error ? error.message : String(error);
-
     return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

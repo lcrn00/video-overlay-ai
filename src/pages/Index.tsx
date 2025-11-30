@@ -10,15 +10,9 @@ const Index = () => {
   const [videoSrc, setVideoSrc] = useState<string>("");
   const [overlayCode, setOverlayCode] = useState<string>("");
 
-  // Diese Funktion setzt alles zurück für ein neues Projekt
-  const handleResetAll = () => {
-    setOverlayCode("");
-    // Optional: setVideoSrc(""); falls auch das Video gelöscht werden soll
-  };
-
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background/50 backdrop-blur-3xl">
-      {/* 1. Header */}
+      {/* Header */}
       <header className="flex-none border-b border-border/40 bg-background/80 backdrop-blur-md z-50">
         <div className="container mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -40,10 +34,10 @@ const Index = () => {
         </div>
       </header>
 
-      {/* 2. Main Workspace */}
+      {/* Main Workspace */}
       <div className="flex-1 overflow-hidden">
         <ResizablePanelGroup direction="horizontal" className="h-full">
-          {/* LEFT SIDEBAR: Tools */}
+          {/* LEFT SIDEBAR */}
           <ResizablePanel
             defaultSize={30}
             minSize={20}
@@ -51,7 +45,6 @@ const Index = () => {
             className="bg-card/50 border-r border-border/40 flex flex-col"
           >
             <div className="flex-1 flex flex-col h-full">
-              {/* Upload Section */}
               <div className="p-6 border-b border-border/40 bg-background/30">
                 <h2 className="text-sm font-semibold text-muted-foreground mb-4 uppercase tracking-wider flex items-center gap-2">
                   <Sparkles className="w-3 h-3" /> Source
@@ -59,7 +52,6 @@ const Index = () => {
                 <VideoUpload onVideoUpload={setVideoSrc} />
               </div>
 
-              {/* Chat Section */}
               <div className="flex-1 flex flex-col min-h-0 bg-background/20">
                 <div className="p-4 pb-2">
                   <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">AI Editor</h2>
@@ -67,22 +59,20 @@ const Index = () => {
                 <div className="flex-1 overflow-hidden">
                   <ChatInterface
                     videoSrc={videoSrc}
-                    currentCode={overlayCode} // WICHTIG: Wir geben den aktuellen Code weiter
+                    currentCode={overlayCode} // Hier wird das Gedächtnis übergeben
                     onOverlayGenerated={setOverlayCode}
-                    onReset={handleResetAll} // WICHTIG: Die Reset-Funktion
+                    onReset={() => setOverlayCode("")} // Der Reset löscht das Gedächtnis
                   />
                 </div>
               </div>
             </div>
           </ResizablePanel>
 
-          {/* DRAG HANDLE */}
           <ResizableHandle withHandle className="bg-border/40 hover:bg-primary/20 transition-colors" />
 
-          {/* RIGHT CANVAS: The Stage */}
+          {/* RIGHT CANVAS */}
           <ResizablePanel defaultSize={70}>
             <div className="h-full w-full bg-muted/20 flex flex-col items-center justify-center p-8 relative">
-              {/* Background Decoration */}
               <div
                 className="absolute inset-0 pointer-events-none opacity-[0.03]"
                 style={{
@@ -102,7 +92,6 @@ const Index = () => {
                   )}
                 </div>
 
-                {/* The Canvas Component */}
                 <div className="shadow-2xl shadow-black/10 rounded-xl overflow-hidden border border-border/60 ring-1 ring-white/20 bg-card">
                   <VideoCanvas
                     videoSrc={videoSrc}
@@ -112,7 +101,7 @@ const Index = () => {
                 </div>
 
                 <p className="text-center text-xs text-muted-foreground mt-4">
-                  Changes in the chat appear here in real-time. Export when you're ready.
+                  Export to save your video as a standalone HTML file.
                 </p>
               </div>
             </div>
